@@ -89,12 +89,11 @@ describe Packer do
   context "#build" do
     it "should fail if bundler fails" do
       create_local_git
-      packer = Packer.new(@tmpdir)
-
       File.write("Gemfile", ["source :rubygems", "gem 'invalid gem name'"])
       system("git add Gemfile")
       system("git commit -am 'test'")
 
+      packer = Packer.new(@tmpdir)
       packer.fetch
       packer.build
     end
