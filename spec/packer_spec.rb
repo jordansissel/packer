@@ -18,19 +18,15 @@ describe Packer do
     Dir.chdir(@tmpdir) do
       system("git init")
       File.write("hello", "world")
-      system("git add hello")
+      yield if block_given?
+
+      system("git add .")
       system("git commit -am 'test'")
     end
   end
 
   it "should permit packaging a local git repo" do
-    # Create a local git repo
-    Dir.chdir(@tmpdir) do
-      system("git init")
-      File.write("hello", "world")
-      system("git add hello")
-      system("git commit -am 'test'")
-    end
+    create_local_git
 
     packer = Packer.new(@tmpdir)
     packer.fetch
@@ -38,8 +34,8 @@ describe Packer do
     packer.clean
   end
 
-  context "ruby-cabin as a package" do
-    subject { Packer.new("https://github.com/jordansissel/ruby-cabin.git") }
+  context "fpm as a package" do
+    subject { Packer.new("https://github.com/jordansissel/fpm.git") }
 
     before do
       subject.fetch
@@ -54,7 +50,8 @@ describe Packer do
       # Run fpm's test suite from the packer's staging/app directory. 
       # Make sure it passes.
       Dir.chdir(subject.appdir) do
-        system("bundle exec make test")
+        # Run the fpm test suite from within the full package dir.
+        system("bundle exec rspec")
         insist { $? }.success?
       end
     end
@@ -65,11 +62,11 @@ describe Packer do
         gems = `bundle exec gem list --local`.split("\n")\
           .collect { |line| line.split(/\s+/).first }
 
-        # This assumes ruby-cabin's Gemfile includes json, minitest, and
-        # simplecov
         insist { gems }.include?("json")
-        insist { gems }.include?("minitest")
-        insist { gems }.include?("simplecov")
+        insist { gems }.include?("cabin")
+        insist { gems }.include?("backports")
+        insist { gems }.include?("arr-pm")
+        insist { gems }.include?("clamp")
       end
     end
   end
@@ -88,14 +85,15 @@ describe Packer do
 
   context "#build" do
     it "should fail if bundler fails" do
-      create_local_git
-      File.write("Gemfile", ["source :rubygems", "gem 'invalid gem name'"])
-      system("git add Gemfile")
-      system("git commit -am 'test'")
+      create_local_git do
+        File.write("Gemfile", ["source :rubygems", "gem 'invalid gem name'"].join("\n"))
+      end
 
       packer = Packer.new(@tmpdir)
       packer.fetch
-      packer.build
+
+      # Bundler should fail in the build step..
+      insist { packer.build }.raises(Packer::CommandFailed)
     end
   end
 
