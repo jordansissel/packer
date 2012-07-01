@@ -2,6 +2,7 @@ require "rake" # gem/stdlib
 require "cabin" # gem 'cabin'
 require "fileutils" # stdlib
 require "tmpdir" # stdlib, provides Dir#mktmpdir
+require "bundler" # gem bundler
 
 # A ruby application packer.
 #
@@ -10,6 +11,22 @@ require "tmpdir" # stdlib, provides Dir#mktmpdir
 #
 # This class uses temporary storage to stage downloads while building the
 # package. 
+#
+# Example:
+#
+#     packer = Packer.new("https://github.com/jordansissel/fpm.git")
+#     packer.pack    # returns the path to the tarball
+#
+# Other useful methods:
+#
+# * {Packer#fetch}
+# * {Packer#build}
+# * {Packer#assemble}
+# * {Packer#clean}
+#
+# Less common methods:
+#
+# * {Packer#workdir=}
 class Packer
 
   # The parent class of all Packer errors.
@@ -31,8 +48,8 @@ class Packer
 
   # initialize a new Packer.
   #
-  # source - a path or URL to a git repository.
-  # branch_or_commit_hash - a git commit hash or branch name. If omitted,
+  # * source - a path or URL to a git repository.
+  # * branch_or_commit_hash - a git commit hash or branch name. If omitted,
   #   whatever 'git clone' obtains to will be used.
   def initialize(source, branch_or_commit_hash=nil)
     @source = source
@@ -51,9 +68,11 @@ class Packer
 
   # Set the work directory to a given path.
   #
-  # * The parent directory MUST exist, will raise 1Gj.
+  # Setting this is not common. Only do this if you know what you really want.
+  #
+  # * The parent directory MUST exist, otherwise will {WorkDirectoryProblem}
   # * If the path itself does not exist, it will be created.
-  # * This path can be destroyed by invoking Packer#clean
+  # * This path can be destroyed by invoking {Packer#clean}
   def workdir=(path)
     begin
       # Create the directory if it doesn't exist.
@@ -76,11 +95,14 @@ class Packer
     @workdir = File.expand_path(path)
   end # def workdir=
 
-  # Get the work directory or a path relative to the work directory. This is
-  # used for fetching files, building stuff, etc.
+  # Get the work directory (or a path relative inside it). This is used for
+  # storing files, building stuff, etc.
   #
-  # If none is yet set, a random temporary directory will be generated using
-  # Dir#mktmpdir.
+  # If none is yet set, a random temporary directory will be used (chosen
+  # by {Dir#mktmpdir}).
+  #
+  # * path - optional string path inside the workdir. Omit to return the
+  # workdir itself. Passing a path will return workdir + "/" + path
   def workdir(path=nil)
     # Use File.expand_path to avoid any relative-path problems later
     @workdir ||= File.expand_path(Dir.mktmpdir)
@@ -93,6 +115,8 @@ class Packer
   end # def workdir
 
   # Get the application directory (where things are checked out, etc)
+  #
+  # Similar behavior to {workdir}
   def appdir(path=nil)
     dir = workdir("app")
     Dir.mkdir(dir) if !File.directory?(dir)
@@ -104,6 +128,8 @@ class Packer
   end # def clonedir
 
   # Run a command, raise exception on failure.
+  #
+  # * args - same call scheme as the {system} method.
   def run(*args)
     logger.info("Running", :command => args)
     system(*args)
@@ -113,6 +139,8 @@ class Packer
   end # def run
 
   # Fetches the upstream git repository
+  #
+  # Raises {WorkDirectoryProblem} or {CommandFailed} on failure.
   def fetch
     # TODO(sissel): Ensure 'git' is in PATH
 
@@ -154,7 +182,8 @@ class Packer
 
   # Perform any necessary build/compile actions to prepare for packaging.
   #
-  # This includes installing and compiling any dependencies, etc.
+  # This includes installing and compiling any dependencies, such as
+  # with bundler.
   def build
     # TODO(sissel): Bundler sometimes tries to be so smart as to be dumb,
     # so I may expect that we'll have to do the following in the future:
@@ -181,12 +210,11 @@ class Packer
 
   # Assemble a package.
   #
-  # Returns the path (String) to the package being emitted.
+  # * output_path - the file path you want the tarball to be written as.
   def assemble(output_path)
     @logger.info("Assembling tarball", :name => name, :version => version, :output => output_path)
     run("tar", "-zcf", output_path, "--exclude", ".git",
         "-C", appdir, ".")
-    return output_path
   end # def assemble
 
   # Clean any garbage on the filesystem created by this class.
@@ -201,9 +229,9 @@ class Packer
   def pack(output_path=default_output_path)
     fetch
     build
-    tarball = assemble(output_path)
+    assemble(output_path)
     clean
-    return tarball
+    return output_path
   end # def pack
 
   # Get the default package output path.
@@ -214,7 +242,7 @@ class Packer
   end # def default_output_path
 
   # Main entry points
-  public(:fetch, :build, :assemble, :pack, :clean)
+  public(:fetch, :build, :assemble, :pack, :clean, :initialize)
   
   # Accessory methods
   public(:logger, :workdir, :workdir=, :appdir, :name, :version)
