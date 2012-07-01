@@ -3,7 +3,13 @@ require "spec_setup" # local
 require "tmpdir" # stdlib
 require "cabin"
 
-Cabin::Channel.get.subscribe(STDOUT)
+
+# If running ruby in debug mode (ruby -d), let's get debug stuff out of the logger.
+if $DEBUG
+  logger = Cabin::Channel.get
+  logger.subscribe(STDOUT)
+  logger.level = :debug
+end
 
 describe Packer do
   before :each do
@@ -35,32 +41,40 @@ describe Packer do
   end
 
   context "fpm as a package" do
-    subject { Packer.new("https://github.com/jordansissel/fpm.git") }
-
-    before do
-      subject.fetch
-      subject.build
+    before :all do
+      @packer = Packer.new("https://github.com/jordansissel/fpm.git")
+      @packer.fetch
+      @packer.build
     end
 
-    after do
-      subject.clean
+    after :all do
+      @packer.clean
     end
 
     it "should pass all tests" do
       # Run fpm's test suite from the packer's staging/app directory. 
       # Make sure it passes.
-      Dir.chdir(subject.appdir) do
-        # Run the fpm test suite from within the full package dir.
-        system("bundle exec rspec")
+      Dir.chdir(@packer.appdir) do
+        # According to 'bundle --help exec' you must use Bundle.with_clean_env
+        # in order to have subprocesses run sanely outside of this current
+        # bundler environment.
+        Bundler.with_clean_env do
+          # Run the fpm test suite from within the full package dir.
+          system("bundle exec rspec")
+        end
         insist { $? }.success?
       end
     end
 
     it "should include dependencies" do
-      Dir.chdir(subject.appdir) do
+      Dir.chdir(@packer.appdir) do
         # Get the gem list, only the names though.
-        gems = `bundle exec gem list --local`.split("\n")\
-          .collect { |line| line.split(/\s+/).first }
+        gems = Bundler.with_clean_env do 
+          # Line format is '  * NAME (VERSION)' 
+          # I want the name.
+          `bundle list`.split("\n")\
+            .collect { |line| line.gsub(/^\s+\*\s+/, "").split(/\s+/).first }
+        end
 
         insist { gems }.include?("json")
         insist { gems }.include?("cabin")
@@ -97,11 +111,27 @@ describe Packer do
     end
   end
 
-  context "#assemble" do
-    it "should produce a .tar.gz file"
+  context "#pack" do
+    it "should produce a .tar.gz file" do
+      create_local_git
+      packer = Packer.new(@tmpdir)
+      file = packer.pack
+      insist { file }.end_with?(".tar.gz")
+      insist { File }.exists?(file)
+      File.delete(file)
+    end
   end
 
   context "#clean" do
-    it "should completely purge the workdir"
+    it "should completely purge the workdir" do
+      create_local_git
+      packer = Packer.new(@tmpdir)
+      packer.fetch
+      packer.build
+
+      insist { File.directory?(packer.workdir) } == true
+      packer.clean
+      insist { File.directory?(packer.workdir) } == false
+    end
   end
 end
