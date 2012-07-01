@@ -162,7 +162,10 @@ class Packer
     # - prior to run, if no Gemfile.lock, create it with 'bundle install'
 
     Dir.chdir(appdir) do
-      return unless File.exists?("Gemfile")
+      if !File.exists?("Gemfile")
+        @logger.info("Skipping bundler step, no Gemfile", :path => @appdir)
+        return
+      end
 
       # Don't use 'bundle install --development' because that implies some
       # constraints that aren't relevant to most "vendor these gems" actions.
