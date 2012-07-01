@@ -1,4 +1,4 @@
-require "rake"
+require "rake" # gem/stdlib
 require "cabin" # gem 'cabin'
 require "fileutils" # stdlib
 require "tmpdir" # stdlib, provides Dir#mktmpdir
@@ -209,8 +209,8 @@ class Packer
   end # def default_output_path
 
   # Main entry points
-  public(:fetch, :build, :assemble, :pack)
+  public(:fetch, :build, :assemble, :pack, :clean)
   
   # Accessory methods
-  public(:logger, :workdir, :workdir=, :name, :version)
+  public(:logger, :workdir, :workdir=, :appdir, :name, :version)
 end # class Packer
