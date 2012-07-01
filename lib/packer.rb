@@ -173,7 +173,9 @@ class Packer
       # I find that '--deployment' enforces policies I don't care about while
       # otherwise setting only "path = vendor/bundle" 
       # -Jordan
-      run("bundle", "install", "--path", File.join("vendor", "bundle"))
+      Bundler.with_clean_env do
+        run("bundle", "install", "--path", File.join(appdir, "vendor", "bundle"))
+      end
     end
   end # def build
 
