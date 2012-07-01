@@ -1,6 +1,9 @@
 require "packer" # local
 require "spec_setup" # local
 require "tmpdir" # stdlib
+require "cabin"
+
+Cabin::Channel.get.subscribe(STDOUT)
 
 describe Packer do
   before :each do
