@@ -11,6 +11,15 @@ describe Packer do
     FileUtils.remove_entry_secure(@tmpdir)
   end
 
+  def create_local_git
+    Dir.chdir(@tmpdir) do
+      system("git init")
+      File.write("hello", "world")
+      system("git add hello")
+      system("git commit -am 'test'")
+    end
+  end
+
   it "should permit packaging a local git repo" do
     # Create a local git repo
     Dir.chdir(@tmpdir) do
@@ -26,33 +35,66 @@ describe Packer do
     packer.clean
   end
 
-  context "fizzle" do
-    it "should permit packaging a remote git repo" do
-      packer = Packer.new("https://github.com/jordansissel/fpm.git")
-      packer.fetch
-      packer.build
+  context "ruby-cabin as a package" do
+    subject { Packer.new("https://github.com/jordansissel/ruby-cabin.git") }
 
+    before do
+      subject.fetch
+      subject.build
+    end
+
+    after do
+      subject.clean
+    end
+
+    it "should pass all tests" do
       # Run fpm's test suite from the packer's staging/app directory. 
       # Make sure it passes.
-      Dir.chdir(packer.appdir) do
-        system("bundle exec rspec")
+      Dir.chdir(subject.appdir) do
+        system("bundle exec make test")
         insist { $? }.success?
       end
+    end
 
-      packer.clean
+    it "should include dependencies" do
+      Dir.chdir(subject.appdir) do
+        # Get the gem list, only the names though.
+        gems = `bundle exec gem list --local`.split("\n")\
+          .collect { |line| line.split(/\s+/).first }
+
+        # This assumes ruby-cabin's Gemfile includes json, minitest, and
+        # simplecov
+        insist { gems }.include?("json")
+        insist { gems }.include?("minitest")
+        insist { gems }.include?("simplecov")
+      end
     end
   end
 
-  it "should package all dependencies" do
-  end
-
   context "#fetch" do
-    it "should fail if given an invalid git repo"
-    it "should fail if the workdir cannot be used"
+    it "should fail if given an invalid git repo" do
+      insist { Packer.new("/invalid").fetch }.raises(Packer::Error)
+    end
+
+    it "should fail if the workdir cannot be used" do
+      # Create a local git repo
+      insist { Packer.new(@tmpdir).workdir = "/invalid" } \
+        .raises(Packer::WorkDirectoryProblem)
+    end
   end
 
   context "#build" do
-    it "should fail if bundler fails"
+    it "should fail if bundler fails" do
+      create_local_git
+      packer = Packer.new(@tmpdir)
+
+      File.write("Gemfile", ["source :rubygems", "gem 'invalid gem name'"])
+      system("git add Gemfile")
+      system("git commit -am 'test'")
+
+      packer.fetch
+      packer.build
+    end
   end
 
   context "#assemble" do
