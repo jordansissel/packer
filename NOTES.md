@@ -31,6 +31,7 @@ The requirements are unclear in some cases.
   What about libraries and other support tools? Are we relying on the main system
   to provide this? 
 * there's no indication as to what the file name of the tarball should be.
+* the how and what of inputs to bin/packer is not given (flags, parameters, etc?)
 
 ### Deviation
 
@@ -53,23 +54,23 @@ implementing as code.
   many properties (versioning, verification, queryable, known distribution
   tools, etc) useful when using software packages. 
 * Monolithic packages are fairly beefy to ship (depending on how long your
-  dependency list gets). Is this a problem? Do we have distribution mechanism
-  that can help reduce the pain here?
+  dependency list gets). Is this a concern? Do we have distribution mechanism
+  that can help reduce the pain here? 
 * Are there any other systems we can use or learn from instead of inventing our own?
-  Examples: heroku's buildpack, rpm/deb packaging ecosystems, gentoo portage, warbler.
+  Examples: heroku's buildpack, opscode's omnibus, rpm/deb packaging
+  ecosystems, gentoo portage, warbler.
 * Taking the design requirements exactly as-is, I would probably implement 'packer' as
   a fairly short Makefile given the simplicity of the three steps (git clone,
   bundle install, tar it up)
 
 ## Related Thoughts
 
+Prior art I've written in this area: fpm, logstash's 'monolithic jar' builder.
+
 I've implemented packaging many times over, most of which culminated in writing
 [fpm](https://github.com/jordansissel/fpm/).
 
 If I could ignore the "write a tool called 'packer' as a ruby library"
 requirement, the general goal of this project would fit well as an fpm package
-source, with something like this going on:
-
-`fpm -s ruby-git -t tar --source http://github.com/some/repo.git`
-
-This would help us try out other target package formats than 'tar' trivially ;)
+source. This would help us try out other target package formats than 'tar'
+trivially ;)
