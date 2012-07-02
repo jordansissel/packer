@@ -8,6 +8,21 @@ pack up a ruby project and its dependencies into a tarball.
 
 ## Usage
 
+As a Ruby Library:
+
+See the {Packer} class, but in general this is what you want:
+
+```ruby
+
+# The url is required, but the branch/tag/git-commit-sha1 is optional.
+packer = Packer.new("https://github.com/jordansissel/fpm.git", "v0.3.10")
+
+# Packer#pack builds the tarball (dependencies included) and returns the
+# string path to the .tar.gz file produced.
+tarball_path = packer.pack
+```
+
+---
 Command line:
 
 ```
@@ -25,4 +40,6 @@ Web hook:
 
 * Run `foreman start server`
 * Point github web hook at http://your-server:4567/
+
+---
 
