@@ -6,10 +6,12 @@ $:.unshift(File.join(File.dirname(__FILE__), "..", "lib"))
 require "packer"
 
 class PackerCommand < Clamp::Command
+  option "--revision", "SHA1|COMMIT|BRANCH|TAG",
+    "The git revision/tag/branch to use from the given git repo"
   parameter "URL_OR_PATH", "URL or path to a git repo to pack."
 
   def execute
-    packer = Packer.new(url_or_path)
+    packer = Packer.new(url_or_path, revision)
     output = packer.pack
     puts "Created #{output}"
   end
