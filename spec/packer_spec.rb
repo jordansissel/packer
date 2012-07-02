@@ -1,8 +1,7 @@
 require "packer" # local
 require "spec_setup" # local
 require "tmpdir" # stdlib
-require "cabin"
-
+require "cabin" # gem 'cabin'
 
 # If running ruby in debug mode (ruby -d), let's get debug stuff out of the logger.
 if $DEBUG
@@ -116,8 +115,14 @@ describe Packer do
       create_local_git
       packer = Packer.new(@tmpdir)
       file = packer.pack
+
+      # Check filename
       insist { file }.end_with?(".tar.gz")
+
+      # Make sure the file exists
       insist { File }.exists?(file)
+
+      # Clean up.
       File.delete(file)
     end
   end
