@@ -22,6 +22,8 @@ packer = Packer.new("https://github.com/jordansissel/fpm.git", "v0.3.10")
 tarball_path = packer.pack
 ```
 
+Additionally, you can use 'yard' to view the docs for the ruby lib: `yard server`
+
 ---
 Command line:
 
@@ -42,4 +44,5 @@ Web hook:
 * Point github web hook at http://your-server:4567/
 
 ---
+
 
