@@ -230,8 +230,10 @@ class Packer
     fetch
     build
     assemble(output_path)
-    clean
     return output_path
+  ensure
+    # Always clean, even on failure (or interruption like SIGINT)
+    clean
   end # def pack
 
   # Get the default package output path.
