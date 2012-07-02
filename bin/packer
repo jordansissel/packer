@@ -1,0 +1,18 @@
+#!/usr/bin/env ruby
+
+require "clamp"
+
+$:.unshift(File.join(File.dirname(__FILE__), "..", "lib"))
+require "packer"
+
+class PackerCommand < Clamp::Command
+  parameter "URL_OR_PATH", "URL or path to a git repo to pack."
+
+  def execute
+    packer = Packer.new(url_or_path)
+    output = packer.pack
+    puts "Created #{output}"
+  end
+end # class PackerCommand
+
+PackerCommand.run
