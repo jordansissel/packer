@@ -1,0 +1,58 @@
+#!/usr/bin/env ruby
+
+require "sinatra"
+
+$:.unshift(File.join(File.dirname(__FILE__), "..", "lib"))
+require "packer"
+require "cabin"
+
+# Point the default cabin channel at stdout.
+cabin = Cabin::Channel.get
+cabin.subscribe(STDOUT)
+
+# Set debug logging if ruby debug mode ('ruby -d') is set
+if $DEBUG
+  cabin.level = :debug
+else
+  cabin.level = :info
+end
+
+# TODO(sissel): Perhaps in the future add some small layer of security by
+# requiring user/pass or putting some kind of obfuscated path (uuid, etc)
+post "/" do
+  cabin.debug("New post-commit request", :params => params.to_hash)
+
+  if params[:payload].nil?
+    cabin.info("Invalid request, missing 'payload' parameter")
+    # 400 error due to client mistake.
+    return [400, {}, "Missing 'payload' parameter.\n"]
+  end
+
+  begin
+    # TODO(sissel): handle json errors
+    push = JSON.parse(params[:payload])
+    # TODO(sissel): handle json errors
+    repo = push["repository"]["url"]
+  rescue JSON::ParserError => e
+    return [400, {}, "Error parsing JSON (#{e.to_s}): #{params[:payload]}\n"]
+  rescue => e
+    # TODO(sissel): Find other specific errors (like missing repository.url)
+    cabin.error(e)
+    return [500, {}, "#{e}\n"]
+  end
+
+  # TODO(sissel): Possible future improvement: decouple the posts here from
+  # the packaging step (work queue, etc). This could help separate scaling concerns
+  # of http vs package building.
+
+  # Run the package building in a separate thread
+  Thread.new(repo) do |repo|
+    cabin.info("Starting new packer", :repo => repo)
+    packer = Packer.new(repo)
+    output = packer.pack
+    cabin.info("Packer finished", :repo => repo, :output => output)
+  end
+
+  # '202 Accepted' seems like a reasonable response code
+  return 202
+end # post "/"
